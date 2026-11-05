@@ -40,9 +40,7 @@ export interface Place {
   power: boolean;
 }
 
-export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-
-export const OVERPASS_QUERY = `[out:json][timeout:90];
+export const OVERPASS_QUERY = `[out:json][timeout:25];
 area["name"="Den Haag"]["admin_level"="8"]->.a;
 (
   nwr["amenity"="library"](area.a);
@@ -142,15 +140,22 @@ export function parseOverpass(json: { elements?: OverpassElement[] }): Place[] {
   return out;
 }
 
-// --- Cache (one hour, browser localStorage) ---
+// --- Cache (one hour, browser localStorage; live data only) ---
 
 export const CACHE_KEY = "late-hague:places:v1";
 export const CACHE_TTL_MS = 60 * 60 * 1000;
 
+export type DataSource = "live" | "saved";
+
 export interface PlacesResult {
   places: Place[];
+  /** "live" = from an Overpass server (possibly cached up to an hour); "saved" = bundled snapshot. */
+  source: DataSource;
+  /** When live data was fetched (ms). For saved data: the snapshot date. */
   savedAt: number;
   fromCache: boolean;
+  /** Snapshot date as YYYY-MM-DD, only for saved data. */
+  snapshotDate?: string | undefined;
 }
 
 export function readCache(now: number = Date.now()): PlacesResult | null {
@@ -160,7 +165,7 @@ export function readCache(now: number = Date.now()): PlacesResult | null {
     const data = JSON.parse(raw) as { savedAt: number; places: Place[] };
     if (!Array.isArray(data.places) || typeof data.savedAt !== "number") return null;
     if (now - data.savedAt > CACHE_TTL_MS || now < data.savedAt) return null;
-    return { places: data.places, savedAt: data.savedAt, fromCache: true };
+    return { places: data.places, source: "live", savedAt: data.savedAt, fromCache: true };
   } catch {
     return null;
   }
@@ -190,52 +195,173 @@ export class OverpassError extends Error {
   }
 }
 
-export async function fetchPlaces(): Promise<PlacesResult> {
-  const cached = readCache();
-  if (cached) return cached;
+// --- Live data: try each Overpass server in turn ---
 
+export const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+] as const;
+export const OVERPASS_URL = OVERPASS_ENDPOINTS[0];
+export const ENDPOINT_TIMEOUT_MS = 20_000;
+
+type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
+
+export async function fetchFromEndpoint(
+  url: string,
+  { fetchImpl = fetch, timeoutMs = ENDPOINT_TIMEOUT_MS }: { fetchImpl?: FetchFn; timeoutMs?: number } = {},
+): Promise<Place[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 100_000);
-  let res: Response;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    res = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "data=" + encodeURIComponent(OVERPASS_QUERY),
-      signal: controller.signal,
-    });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") {
-      throw new OverpassError("timeout", "OpenStreetMap took too long to answer.");
+    let res: Response;
+    try {
+      res = await fetchImpl(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "data=" + encodeURIComponent(OVERPASS_QUERY),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") {
+        throw new OverpassError("timeout", "OpenStreetMap took too long to answer.");
+      }
+      throw new OverpassError("network", "Could not reach OpenStreetMap.");
     }
-    throw new OverpassError("network", "Could not reach OpenStreetMap. Check your internet connection.");
+    if (res.status === 429 || res.status === 503) {
+      throw new OverpassError("busy", "The OpenStreetMap server is busy.");
+    }
+    if (res.status === 504) throw new OverpassError("timeout", "OpenStreetMap took too long to answer.");
+    if (!res.ok) throw new OverpassError("bad", `OpenStreetMap returned an error (${res.status}).`);
+
+    let json: { elements?: OverpassElement[]; remark?: string };
+    try {
+      json = await res.json();
+    } catch (e) {
+      if ((e as Error).name === "AbortError") {
+        throw new OverpassError("timeout", "OpenStreetMap took too long to answer.");
+      }
+      throw new OverpassError("bad", "The answer from OpenStreetMap could not be read.");
+    }
+    const places = parseOverpass(json);
+    if (places.length === 0) {
+      throw new OverpassError("bad", "OpenStreetMap could not finish the search.");
+    }
+    return places;
   } finally {
     clearTimeout(timer);
   }
+}
 
-  if (res.status === 429) {
-    throw new OverpassError("busy", "The OpenStreetMap server is busy right now. Wait a minute and try again.");
+// --- Saved data: bundled snapshot used when every live server fails ---
+
+const SNAPSHOT_KIND: Record<string, PlaceKind> = {
+  library: "library",
+  coworking_space: "coworking",
+  coworking: "coworking",
+  cafe: "cafe",
+  fast_food: "fast_food",
+  restaurant: "restaurant",
+  supermarket: "supermarket",
+  convenience: "convenience",
+};
+
+export interface SnapshotPlace {
+  id: string;
+  name: string;
+  kind: string;
+  group?: string;
+  lat: number;
+  lon: number;
+  opening_hours?: string | null;
+  internet_access?: string | null;
+  power_supply?: string | null;
+  socket?: string | null;
+}
+
+export interface Snapshot {
+  fetched: string;
+  source?: string;
+  places: SnapshotPlace[];
+}
+
+/** Converts the snapshot to places. Only the same kinds as the live search are kept. */
+export function parseSnapshot(snapshot: Snapshot): Place[] {
+  const out: Place[] = [];
+  for (const s of snapshot.places) {
+    const kind = SNAPSHOT_KIND[s.kind];
+    if (!kind || typeof s.lat !== "number" || typeof s.lon !== "number") continue;
+    const tags: Tags = {};
+    if (s.internet_access) tags.internet_access = s.internet_access;
+    if (s.power_supply) tags.power_supply = s.power_supply;
+    if (s.socket) tags["socket"] = s.socket;
+    const hours = s.opening_hours?.trim();
+    out.push({
+      id: s.id,
+      name: s.name?.trim() || `Unnamed ${KIND_LABEL[kind].toLowerCase()}`,
+      lat: s.lat,
+      lon: s.lon,
+      kind,
+      category: KIND_CATEGORY[kind],
+      hours: hours || undefined,
+      wifi: hasWifi(tags),
+      power: hasPower(tags),
+    });
   }
-  if (res.status === 504) {
-    throw new OverpassError("timeout", "OpenStreetMap took too long to answer.");
-  }
-  if (!res.ok) {
-    throw new OverpassError("bad", `OpenStreetMap returned an error (${res.status}).`);
+  return out;
+}
+
+export async function loadSnapshot(): Promise<PlacesResult> {
+  const mod = (await import("@/data/places_snapshot.json")) as unknown as { default: Snapshot };
+  const snapshot = mod.default;
+  return {
+    places: parseSnapshot(snapshot),
+    source: "saved",
+    savedAt: Date.parse(`${snapshot.fetched}T00:00:00Z`),
+    fromCache: false,
+    snapshotDate: snapshot.fetched,
+  };
+}
+
+/** "2026-11-05" -> "5 Nov 2026" */
+export function formatSnapshotDate(isoDate: string): string {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Cache (live, < 1 hour) → each Overpass server with a 20 s timeout → bundled saved snapshot.
+ * Only live results are cached, so the next visit tries the live servers again.
+ */
+export async function fetchPlaces(
+  options: { fetchImpl?: FetchFn; timeoutMs?: number; loadSaved?: () => Promise<PlacesResult> } = {},
+): Promise<PlacesResult> {
+  const cached = readCache();
+  if (cached) return cached;
+
+  for (const url of OVERPASS_ENDPOINTS) {
+    try {
+      const places = await fetchFromEndpoint(url, options);
+      const savedAt = Date.now();
+      writeCache(places, savedAt);
+      return { places, source: "live", savedAt, fromCache: false };
+    } catch {
+      // Try the next server.
+    }
   }
 
-  let json: { elements?: OverpassElement[]; remark?: string };
   try {
-    json = await res.json();
+    return await (options.loadSaved ?? loadSnapshot)();
   } catch {
-    throw new OverpassError("bad", "The answer from OpenStreetMap could not be read.");
+    throw new OverpassError(
+      "network",
+      "Live data is unavailable and the saved data could not be opened. Check your internet connection and try again.",
+    );
   }
-  const places = parseOverpass(json);
-  if (places.length === 0 && json.remark) {
-    throw new OverpassError("timeout", "OpenStreetMap could not finish the search. Try again.");
-  }
-  const savedAt = Date.now();
-  writeCache(places, savedAt);
-  return { places, savedAt, fromCache: false };
 }
 
 // --- Helpers ---
