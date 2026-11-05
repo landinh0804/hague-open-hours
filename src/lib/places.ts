@@ -35,7 +35,7 @@ export interface Place {
   lon: number;
   kind: PlaceKind;
   category: Category;
-  hours?: string;
+  hours?: string | undefined;
   wifi: boolean;
   power: boolean;
 }
@@ -56,7 +56,17 @@ area["name"="Den Haag"]["admin_level"="8"]->.a;
 );
 out center tags;`;
 
-type Tags = Record<string, string>;
+interface Tags {
+  amenity?: string;
+  office?: string;
+  shop?: string;
+  internet_access?: string;
+  power_supply?: string;
+  opening_hours?: string;
+  name?: string;
+  brand?: string;
+  [key: string]: string | undefined;
+}
 
 export function kindFromTags(tags: Tags): PlaceKind | null {
   const amenity = tags.amenity;

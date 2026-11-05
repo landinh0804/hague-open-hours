@@ -4,7 +4,7 @@ import type { Place } from "./places";
 export interface PlaceView {
   place: Place;
   result: HoursResult;
-  distance?: number;
+  distance?: number | undefined;
 }
 
 export interface Selection {
