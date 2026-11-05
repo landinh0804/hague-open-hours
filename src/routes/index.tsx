@@ -243,9 +243,6 @@ function Index() {
                 Live data is unavailable, showing saved data from {formatSnapshotDate(query.data.snapshotDate ?? "2026-11-05")}.
               </p>
               <p className="mt-0.5 text-sm text-muted-foreground">Hours may have changed since then.</p>
-              <Button variant="soft" size="touch" className="mt-2" onClick={refresh} disabled={query.isFetching}>
-                <RefreshCw className={cn(query.isFetching && "animate-spin")} aria-hidden /> Try live data again
-              </Button>
             </div>
           </div>
         )}

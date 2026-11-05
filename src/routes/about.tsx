@@ -62,6 +62,7 @@ function About() {
             OpenStreetMap
           </a>
           , a map made by volunteers. The app loads it live and keeps a copy on your phone for one hour.
+          If the live servers are unavailable, it shows a saved copy from 5 Nov 2026 and says so.
         </p>
         <p>
           The Haagse Hogeschool library hours come from the{" "}
