@@ -55,7 +55,7 @@ function PlaceItem({ view, showBadges, selected, onSelect }: { view: PlaceView; 
             {result.status === "open" ? "Open" : result.status === "closed" ? "Closed" : "Unknown"}
           </span>
         </div>
-        <p className="mt-2 font-mono text-sm break-words text-foreground/90">
+        <p className="mt-2 text-sm font-semibold tabular-nums break-words text-foreground/90">
           {place.hours ?? <span className="font-sans text-muted-foreground">No hours listed</span>}
         </p>
         {result.status === "unknown" && result.reason && result.reason !== "missing" && (
