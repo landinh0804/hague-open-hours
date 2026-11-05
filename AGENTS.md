@@ -31,7 +31,7 @@ use the editor.
 
 ## Project rules (Late Hague)
 
-- Place data is fetched in the browser from Overpass and cached in localStorage (`src/lib/places.ts`); there is no backend, so no user data can leave the device.
+- Place data is fetched in the browser (`src/lib/places.ts`): one-hour localStorage cache → each Overpass endpoint in order with a per-endpoint timeout → bundled snapshot `src/data/places_snapshot.json` (lazy-imported, never cached, labelled as Saved). No backend, so no user data can leave the device.
 - Open/closed logic lives only in `src/lib/hours.ts` (opening_hours package); missing, unreadable or uncertain hours must map to "unknown", never "open" — covered by `src/test/hours.test.ts`.
 - The Leaflet map is lazy-loaded behind `<ClientOnly>` because Leaflet touches `window` at import time.
 - Fonts are self-hosted via @fontsource (no Google Fonts) so the app makes no third-party requests beyond OSM data/tiles.
