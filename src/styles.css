@@ -1,24 +1,21 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Late Hague design system — "night street" theme.
+ * Deep ink background, sodium-streetlight amber as the primary accent,
+ * clear status colours for open / closed / unknown.
+ * All colours are oklch tokens; components only use semantic classes.
  */
 
 @theme inline {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -46,6 +43,18 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+
+  --color-open: var(--open);
+  --color-open-foreground: var(--open-foreground);
+  --color-open-soft: var(--open-soft);
+  --color-closed: var(--closed);
+  --color-closed-soft: var(--closed-soft);
+  --color-unknown: var(--unknown);
+  --color-unknown-soft: var(--unknown-soft);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-primary-soft: var(--primary-soft);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -59,77 +68,68 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-glow: var(--glow);
+  --shadow-card: var(--card-shadow);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
+  color-scheme: dark;
+  --radius: 0.875rem;
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: oklch(0.16 0.025 262);
+  --foreground: oklch(0.95 0.012 85);
+  --surface: oklch(0.2 0.03 262);
+  --surface-raised: oklch(0.24 0.034 262);
+  --card: oklch(0.205 0.03 262);
+  --card-foreground: oklch(0.95 0.012 85);
+  --popover: oklch(0.22 0.032 262);
+  --popover-foreground: oklch(0.95 0.012 85);
+
+  /* Sodium streetlight amber */
+  --primary: oklch(0.82 0.15 72);
+  --primary-foreground: oklch(0.18 0.03 262);
+  --primary-soft: oklch(0.82 0.15 72 / 14%);
+
+  --secondary: oklch(0.27 0.035 262);
+  --secondary-foreground: oklch(0.95 0.012 85);
+  --muted: oklch(0.25 0.03 262);
+  --muted-foreground: oklch(0.74 0.025 255);
+  --accent: oklch(0.3 0.04 262);
+  --accent-foreground: oklch(0.97 0.01 85);
+  --destructive: oklch(0.68 0.19 25);
+  --destructive-foreground: oklch(0.98 0.01 85);
+  --border: oklch(0.34 0.035 262);
+  --input: oklch(0.38 0.035 262);
+  --ring: oklch(0.82 0.15 72);
+
+  --open: oklch(0.8 0.16 155);
+  --open-foreground: oklch(0.18 0.04 155);
+  --open-soft: oklch(0.8 0.16 155 / 15%);
+  --closed: oklch(0.7 0.13 25);
+  --closed-soft: oklch(0.7 0.13 25 / 14%);
+  --unknown: oklch(0.72 0.03 255);
+  --unknown-soft: oklch(0.72 0.03 255 / 14%);
+
+  --glow: 0 0 0 1px oklch(0.82 0.15 72 / 35%), 0 10px 40px -12px oklch(0.82 0.15 72 / 45%);
+  --card-shadow: 0 1px 0 oklch(1 0 0 / 4%) inset, 0 12px 30px -18px oklch(0 0 0 / 70%);
+  --night-sky:
+    radial-gradient(60rem 30rem at 85% -10%, oklch(0.82 0.15 72 / 10%), transparent 60%),
+    radial-gradient(40rem 24rem at -10% 10%, oklch(0.55 0.12 262 / 18%), transparent 60%);
+
+  --chart-1: oklch(0.82 0.15 72);
+  --chart-2: oklch(0.8 0.16 155);
+  --chart-3: oklch(0.7 0.13 25);
+  --chart-4: oklch(0.72 0.03 255);
+  --chart-5: oklch(0.65 0.12 262);
+  --sidebar: oklch(0.2 0.03 262);
+  --sidebar-foreground: oklch(0.95 0.012 85);
+  --sidebar-primary: oklch(0.82 0.15 72);
+  --sidebar-primary-foreground: oklch(0.18 0.03 262);
+  --sidebar-accent: oklch(0.27 0.035 262);
+  --sidebar-accent-foreground: oklch(0.95 0.012 85);
+  --sidebar-border: oklch(0.34 0.035 262);
+  --sidebar-ring: oklch(0.82 0.15 72);
 }
 
 @layer base {
@@ -137,8 +137,109 @@
     border-color: var(--color-border);
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-background);
+    background-image: var(--night-sky);
+    background-attachment: fixed;
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.55;
   }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
+
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.9);
+  }
+}
+
+@layer components {
+  .text-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+  }
+  .text-link:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* --- Map: OpenStreetMap tiles dimmed for night use --- */
+.night-map {
+  background: var(--surface);
+}
+.night-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+.night-map .leaflet-control-attribution {
+  background: oklch(0.16 0.025 262 / 85%);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.night-map .leaflet-control-attribution a {
+  color: var(--primary);
+}
+.night-map .leaflet-bar a {
+  background: var(--surface-raised);
+  color: var(--foreground);
+  border-color: var(--border);
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+}
+.night-map .leaflet-popup-content-wrapper,
+.night-map .leaflet-popup-tip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--card-shadow);
+}
+.night-map .leaflet-popup-content {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  margin: 12px 16px;
+}
+.night-map .leaflet-popup-close-button {
+  color: var(--muted-foreground) !important;
+}
+
+/* Status markers (SVG paths styled by class) */
+.leaflet-interactive.marker-open {
+  fill: var(--open);
+  stroke: var(--background);
+  fill-opacity: 0.9;
+}
+.leaflet-interactive.marker-closed {
+  fill: var(--closed);
+  stroke: var(--background);
+  fill-opacity: 0.75;
+}
+.leaflet-interactive.marker-unknown {
+  fill: var(--unknown);
+  stroke: var(--background);
+  fill-opacity: 0.55;
+}
+.leaflet-interactive.marker-selected {
+  stroke: var(--primary);
+  stroke-width: 4px;
+  fill-opacity: 1;
+}
+.leaflet-interactive.marker-user {
+  fill: var(--primary);
+  stroke: var(--foreground);
+  stroke-width: 3px;
+  fill-opacity: 1;
 }
