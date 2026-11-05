@@ -1,13 +1,13 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BookOpen, Crosshair, LocateOff, RefreshCw, Search, UtensilsCrossed, X } from "lucide-react";
+import { AlertTriangle, Archive, BookOpen, CloudOff, Radio, Crosshair, LocateOff, RefreshCw, Search, UtensilsCrossed, X } from "lucide-react";
 import { TimePicker } from "@/components/TimePicker";
 import { LibraryCard } from "@/components/LibraryCard";
 import { PlaceGroups } from "@/components/PlaceList";
 import { Button } from "@/components/ui/button";
 import { classify, hhsLibraryStatus, presetWhen, whenToDate, type When } from "@/lib/hours";
-import { clearCache, distanceMeters, fetchPlaces, type Category, type LatLon } from "@/lib/places";
+import { clearCache, distanceMeters, fetchPlaces, formatSnapshotDate, type Category, type LatLon } from "@/lib/places";
 import type { PlaceView, Selection } from "@/lib/view";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,7 @@ function Index() {
 
   const query = useQuery({
     queryKey: ["places"],
-    queryFn: fetchPlaces,
+    queryFn: () => fetchPlaces(),
     staleTime: 60 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
@@ -235,6 +235,20 @@ function Index() {
       </div>
 
       <section id="results" aria-live="polite" aria-busy={query.isLoading} className="mt-6 lg:col-start-1 lg:row-start-2">
+        {query.data?.source === "saved" && (
+          <div role="status" className="mb-4 flex items-start gap-3 rounded-2xl border border-primary/50 bg-primary-soft p-4">
+            <CloudOff className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0">
+              <p className="font-semibold">
+                Live data is unavailable, showing saved data from {formatSnapshotDate(query.data.snapshotDate ?? "2026-11-05")}.
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">Hours may have changed since then.</p>
+              <Button variant="soft" size="touch" className="mt-2" onClick={refresh} disabled={query.isFetching}>
+                <RefreshCw className={cn(query.isFetching && "animate-spin")} aria-hidden /> Try live data again
+              </Button>
+            </div>
+          </div>
+        )}
         {query.isLoading || (!query.data && !query.isError) ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-2xl border bg-card p-4">
@@ -282,7 +296,17 @@ function Index() {
                 {total} {tab === "study" ? "study places" : "food spots"} · {groups.open.length} open then
               </span>
               <span className="flex items-center gap-1">
-                Data from {new Date(query.data!.savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                {query.data!.source === "live" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-open-soft px-2.5 py-1 font-semibold text-open">
+                    <Radio className="size-3.5" aria-hidden />
+                    Live data · loaded {new Date(query.data!.savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
+                    <Archive className="size-3.5" aria-hidden />
+                    Saved data from {formatSnapshotDate(query.data!.snapshotDate ?? "2026-11-05")}
+                  </span>
+                )}
                 <Button variant="ghost" size="sm" className="h-10" onClick={refresh} disabled={query.isFetching}>
                   <RefreshCw className={cn(query.isFetching && "animate-spin")} aria-hidden /> Refresh
                 </Button>
